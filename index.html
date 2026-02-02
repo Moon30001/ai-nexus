@@ -1232,16 +1232,12 @@
             }
 
             const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKeys.gemini}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKeys.gemini}`,
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        generationConfig: {
-                            temperature: 0.7,
-                            maxOutputTokens: 1000,
-                        }
+                        contents: [{ parts: [{ text: prompt }] }]
                     })
                 }
             );
@@ -1251,7 +1247,30 @@
                 
                 // Handle quota exceeded
                 if (response.status === 429) {
-                    throw new Error('Gemini quota exceeded. Your free tier limit has been reached. Please wait or upgrade your API key at https://console.cloud.google.com/');
+                    const linkMessage = `
+                        <div style="margin-bottom: 1rem;">
+                            <strong>Gemini quota exceeded!</strong>
+                        </div>
+                        <div style="margin-bottom: 1rem;">
+                            Your free tier daily limit has been reached. To continue:
+                        </div>
+                        <div style="margin-bottom: 0.5rem;">
+                            • Wait until your quota resets (usually 24 hours)
+                        </div>
+                        <div style="margin-bottom: 0.5rem;">
+                            • Or upgrade to a paid tier: 
+                            <a href="https://console.cloud.google.com/" target="_blank" style="color: #00ffcc; text-decoration: underline;">
+                                Google Cloud Console →
+                            </a>
+                        </div>
+                        <div>
+                            • Get a new API key: 
+                            <a href="https://makersuite.google.com/app/apikey" target="_blank" style="color: #00ffcc; text-decoration: underline;">
+                                Google AI Studio →
+                            </a>
+                        </div>
+                    `;
+                    throw new Error(linkMessage);
                 }
                 
                 throw new Error(errorData.error?.message || `Gemini API error: ${response.status}`);
@@ -1291,7 +1310,35 @@
                 
                 // Handle quota exceeded
                 if (response.status === 429 || errorData.error?.code === 'insufficient_quota') {
-                    throw new Error('OpenAI quota exceeded. If you\'re on the free tier, please add credits or upgrade your plan at https://platform.openai.com/account/billing. If you have a paid plan, sign into your OpenAI account to continue.');
+                    // Create clickable link message
+                    const linkMessage = document.createElement('div');
+                    linkMessage.innerHTML = `
+                        <div style="margin-bottom: 1rem;">
+                            <strong>OpenAI quota exceeded!</strong>
+                        </div>
+                        <div style="margin-bottom: 1rem;">
+                            To continue using GPT-4o Mini:
+                        </div>
+                        <div style="margin-bottom: 0.5rem;">
+                            • If you have a ChatGPT Plus/Pro account: 
+                            <a href="https://platform.openai.com/login" target="_blank" style="color: #00ffcc; text-decoration: underline;">
+                                Sign in to OpenAI Platform →
+                            </a>
+                        </div>
+                        <div style="margin-bottom: 0.5rem;">
+                            • Need to add credits? 
+                            <a href="https://platform.openai.com/account/billing" target="_blank" style="color: #00ffcc; text-decoration: underline;">
+                                Add billing →
+                            </a>
+                        </div>
+                        <div>
+                            • Don't have an account? 
+                            <a href="https://platform.openai.com/signup" target="_blank" style="color: #00ffcc; text-decoration: underline;">
+                                Sign up for OpenAI →
+                            </a>
+                        </div>
+                    `;
+                    throw new Error(linkMessage.innerHTML);
                 }
                 
                 // Handle rate limits
