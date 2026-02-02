@@ -701,6 +701,15 @@
             
             <div class="settings-form">
                 <div class="setting-section">
+                    <h3 class="setting-title">🤖 Anthropic Claude API Key</h3>
+                    <p class="setting-desc">Get your API key from <a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a></p>
+                    <div class="input-group">
+                        <input type="password" id="anthropic-key" class="setting-input" placeholder="sk-ant-...">
+                        <button class="toggle-btn" onclick="toggleKeyVisibility('anthropic-key')">👁️</button>
+                    </div>
+                </div>
+
+                <div class="setting-section">
                     <h3 class="setting-title">🌟 Google Gemini API Key</h3>
                     <p class="setting-desc">Get your free API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a></p>
                     <div class="input-group">
@@ -792,7 +801,8 @@
         let apiKeys = {
             gemini: '',
             openai: '',
-            groq: ''
+            groq: '',
+            anthropic: ''
         };
 
         // Initialize app
@@ -816,6 +826,7 @@
             apiKeys.gemini = localStorage.getItem('geminiApiKey') || '';
             apiKeys.openai = localStorage.getItem('openaiApiKey') || '';
             apiKeys.groq = localStorage.getItem('groqApiKey') || '';
+            apiKeys.anthropic = localStorage.getItem('anthropicApiKey') || '';
         }
 
         function renderUserSelect() {
@@ -949,6 +960,7 @@
             document.getElementById('settings-screen').classList.remove('hidden');
             
             // Load current keys
+            document.getElementById('anthropic-key').value = apiKeys.anthropic;
             document.getElementById('gemini-key').value = apiKeys.gemini;
             document.getElementById('openai-key').value = apiKeys.openai;
             document.getElementById('groq-key').value = apiKeys.groq;
@@ -960,10 +972,12 @@
         }
 
         function saveApiKeys() {
+            apiKeys.anthropic = document.getElementById('anthropic-key').value;
             apiKeys.gemini = document.getElementById('gemini-key').value;
             apiKeys.openai = document.getElementById('openai-key').value;
             apiKeys.groq = document.getElementById('groq-key').value;
 
+            localStorage.setItem('anthropicApiKey', apiKeys.anthropic);
             localStorage.setItem('geminiApiKey', apiKeys.gemini);
             localStorage.setItem('openaiApiKey', apiKeys.openai);
             localStorage.setItem('groqApiKey', apiKeys.groq);
@@ -1196,12 +1210,36 @@
         }
 
         async function callClaude(prompt) {
+            if (!apiKeys.anthropic) {
+                const linkMessage = `
+                    <div style="margin-bottom: 1rem;">
+                        <strong>Claude API key not configured!</strong>
+                    </div>
+                    <div style="margin-bottom: 1rem;">
+                        To use Claude, you need an Anthropic API key:
+                    </div>
+                    <div style="margin-bottom: 0.5rem;">
+                        1. Get your API key: 
+                        <a href="https://console.anthropic.com/" target="_blank" style="color: #00ffcc; text-decoration: underline;">
+                            Anthropic Console →
+                        </a>
+                    </div>
+                    <div style="margin-bottom: 0.5rem;">
+                        2. Add it in Settings ⚙️
+                    </div>
+                    <div style="margin-top: 1rem;">
+                        <strong>Or use the FREE models instead:</strong> Gemini 🆓 or Groq 🆓
+                    </div>
+                `;
+                throw new Error(linkMessage);
+            }
+
             try {
                 const response = await fetch("https://api.anthropic.com/v1/messages", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
-                        "x-api-key": "DEMO_KEY_PLACEHOLDER",
+                        "x-api-key": apiKeys.anthropic,
                         "anthropic-version": "2023-06-01"
                     },
                     body: JSON.stringify({
@@ -1212,7 +1250,39 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error(`Claude is currently in demo mode. For full Claude access, this app uses the Anthropic API which requires proper authentication. The other AI models (Gemini, Groq, GPT-4) work with your API keys!`);
+                    const errorData = await response.json();
+                    
+                    // Handle authentication errors
+                    if (response.status === 401) {
+                        throw new Error('Invalid Anthropic API key. Please check your key in Settings or get a new one at https://console.anthropic.com/');
+                    }
+                    
+                    // Handle quota/rate limits
+                    if (response.status === 429) {
+                        const linkMessage = `
+                            <div style="margin-bottom: 1rem;">
+                                <strong>Claude quota exceeded!</strong>
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                To continue using Claude:
+                            </div>
+                            <div style="margin-bottom: 0.5rem;">
+                                • Check your usage: 
+                                <a href="https://console.anthropic.com/" target="_blank" style="color: #00ffcc; text-decoration: underline;">
+                                    Anthropic Console →
+                                </a>
+                            </div>
+                            <div style="margin-bottom: 0.5rem;">
+                                • Add credits or upgrade your plan
+                            </div>
+                            <div style="margin-top: 1rem;">
+                                <strong>Or use the FREE models:</strong> Gemini 🆓 or Groq 🆓
+                            </div>
+                        `;
+                        throw new Error(linkMessage);
+                    }
+                    
+                    throw new Error(errorData.error?.message || `Claude API error: ${response.status}`);
                 }
 
                 const data = await response.json();
@@ -1221,8 +1291,7 @@
                 }
                 throw new Error('No content in Claude response');
             } catch (error) {
-                // Claude works differently - suggest using the free models instead
-                throw new Error('Claude requires Anthropic API authentication. Please use Gemini (free) or Groq (free) instead, or add an Anthropic API key in Settings if you have one.');
+                throw error;
             }
         }
 
